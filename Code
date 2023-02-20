@@ -18,6 +18,8 @@ library(ggplot2)
 library(dplyr)
 library(tidyverse)
 library(stringr)
+library(caret)
+library(e1071)
 
 brewerybystate=table(file2brewery$State)
 brewerybystate= data.frame(brewerybystate)
@@ -30,19 +32,14 @@ brewerybystate$state=str_replace_all(brewerybystate$state," ","")
 
 #using raw data to create a data set contains, state and freq and lot it with US map
 
-plot_usmap(data = brewerybystate, regions = "state", values = "Freq", color = "red") + 
+plot_usmap(data = brewerybystate, regions = "state", values = "Freq", color = "#56B4E9",labels = TRUE,label_color = "#009E73") + 
   scale_fill_continuous(
-    low = "white", high = "red", name = "freq", label = scales::comma
+    low = "white", high = "#56B4E9", name = "Number of Brewery", label = scales::comma
   ) + theme(legend.position = "right")
 
 
 
-# create a data frame with the given data
-state_freq <- data.frame(
-  state = c("AK", "AL", "AR", "AZ", "CA", "CO", "CT", "DC", "DE", "FL", "GA", "HI", "IA", "ID", "IL", "IN", "KS", "KY", "LA", "MA", "MD", "ME", "MI", "MN", "MO", "MS", "MT", "NC", "ND", "NE", "NH", "NJ", "NM", "NV", "NY", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VA", "VT", "WA", "WI", "WV", "WY"),
-  freq = c(7, 3, 2, 11, 39, 47, 8, 1, 2, 15, 7, 4, 5, 5, 18, 22, 3, 4, 5, 23, 7, 9, 32, 12, 9, 2, 9, 19, 1, 5, 3, 3, 4, 2, 16, 15, 6, 29, 25, 5, 4, 1, 3, 28, 4, 16, 10, 23, 20, 1, 4)
-)
-state_freq$state <- toupper(state_freq$state)
+usmap::plot_usmap("state", include = c("CO", "KY", "IN","NY"),  color = "#56B4E9",labels = TRUE,label_color = "#009E73")
 
 
 
@@ -85,7 +82,7 @@ ggplot(alls, aes(x = State, y = median_ABV, fill = median_IBU)) + #use ggplot to
   ggtitle("Median ABV and IBU by State") +
   xlab("State") +
   ylab("Median ABV") +
-  scale_fill_gradient(low = "blue", high = "red") +
+  scale_fill_gradient(low = "blue", high = "red", name="Median IBU") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
 
@@ -96,14 +93,44 @@ ggplot(alls, aes(x = State, y = median_ABV, fill = median_IBU)) + #use ggplot to
 str(all)
 
 TopABV=tail(all[order(all$ABV),]) #CO has the most alcohol content 	Lee Hill Series Vol. 5 - Belgian Style Quadruple Ale
+colnames(TopABV)[10]="state"
+
 TopIBU=tail(all[order(all$IBU),]) #OR has the most bitter beer American Double / Imperial IPA
+
+colnames(TopIBU)[10]="state"
+#-----------------------------------------------
+#plot top 5 state that has the most ABV beer
+plot_usmap(data = TopABV, regions = "state", include = c("CO", "KY", "IN","NY"), values = "ABV", color = "#56B4E9",labels = TRUE,label_color = "#009E73") + 
+  scale_fill_continuous(
+    low = "white", high = "#56B4E9", name = "Maximum Alcoholic (ABV)", label = scales::comma
+  ) + theme(legend.position = "right")
+
+#-----------------------------------------------
+#plot top 5 state with most IBU beer
+plot_usmap(data = TopIBU, regions = "state", include = c("OR", "VA", "MA","OH","VT"), values = "ABV", color = "#56B4E9",labels = TRUE,label_color = "#009E73") + 
+  scale_fill_continuous(
+    low = "white", high = "#56B4E9", name = "Most Bitter (IBU)", label = scales::comma
+  ) + theme(legend.position = "right")
 
 ```
 
 
 ```{r}
 #Comment on the summary statistics and distribution of the ABV variable.
+
+library(GGally)
 summary(all)
+
+all$Category=as.factor(all$Category)
+class(all$Category)
+
+all%>%
+  select(IBU,ABV,Category)%>%
+  ggpairs(aes(color=Category))
+
+mpg
+
+
 
 #ABV has a left screwed distribution.
  
@@ -116,10 +143,58 @@ all %>%
   ggthemes::theme_economist()
 
 ```
+
+
 ```{r}
 allbeer=all %>%
-  group_by(Beer_ID)%>%
+  group_by(Beer_ID)
+
+all$Category=Category  #creating a category
   
-  sum(str_detect(allbeer$Name.x,"IPA"))
+indexIPA=grep("IPA",all$Name.x) #classify all IPA as IPA
+IPA=all[indexIPA,]
+all[indexIPA,"Category"]="IPA"
+
+
+indexAle=grep("Ale",all$Name.x) #classify all Ale as Ale
+Ale=all[indexAle,]
+all[indexAle,"Category"]="Ale"
+
+IPAandAle=all %>%
+  filter(Category=="IPA" |Category== "Ale")
+
+classification=knn.cv(IPAandAle[c(3,4)],IPAandAle$Category,k=3) #find out max accuracy
+confusionMatrix(table(classification,IPAandAle$Category))
+
+
+MaxAccuracy=numeric(100) #find out max accuracy
+
+for (i in 1:100){
+  classification=knn.cv(IPAandAle[c(3,4)],IPAandAle$Category,k=i)
+  CM=confusionMatrix(table(classification,IPAandAle$Category))
+  MaxAccuracy[i]=CM$overall[1]
+}
+
+plot(MaxAccuracy) #find out max accuracy
+
+#accuracy is the highest when k =3, use k=3 as classification 
+
+classification=knn.cv(IPAandAle[c(3,4)],IPAandAle$Category,k=3) #find out max accuracy
+confusionMatrix(table(classification,IPAandAle$Category))
+
+ggplot(IPAandAle,aes(x=IBU,y=ABV,color=Category))+geom_point()+ggthemes::theme_economist()
+
+
+
+#Cleaning ABV using mean
+df_beers_cl0 = df_beers
+nr_mean_abv = mean(df_beers_cl0[!is.na(df_beers_cl0$ABV),]$ABV) #Calculate the mean
+length_abv = length(df_beers_cl0[is.na(df_beers_cl0$ABV),]$ABV) 
+if(length_abv > 0){
+  df_beers_cl0[is.na(df_beers_cl0$ABV),]$ABV = nr_mean_abv      #Replacing MS
+}
+
 
 ```
+
+
