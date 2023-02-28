@@ -81,7 +81,6 @@ brewerybystate$state=as.character(brewerybystate$state)
 all$State=str_replace_all(all$State," ","")
 brewerybystate$state=str_replace_all(brewerybystate$state," ","")
 
-
 ```
 
 ## Compute the median alcohol content and international bitterness unit for each state. Plot a bar chart to compare
@@ -130,11 +129,22 @@ allsmean=all %>%
   summarise(mean_ABV = mean(ABV), mean_IBU = mean(IBU)) #calculate mean
 
 
+#DC has the highest median IBU
+#KS has the lowest median IBU
+#WV has highest median ABV
+#UT has lowest median ABV
+
+#TX has lowest median IBU among biggest 5 states
+#All big 5 states have median ABV between 5% - 6%
 
 ```
 ## Which state has the maximum alcoholic (ABV) beer? Which state has the most bitter (IBU) beer
 
 - plot the chart with longitude and latitude of each city, and noting on the plot with interactive information.
+
+## Top 5 ABV Beer/ Top 5 IBU Beer
+- plot the chart with the top 5 ABV Beer and it's location
+- plot the chart with the top 5 IBU Beer and it's location
 
 ```{R}
 #calculating Max ABV and IBU in each state
@@ -156,7 +166,7 @@ Lee Hill Series Vol.4,Boulder,ABV:0.104"
 TopIBU=tail(all[order(all$IBU),],n=5) #OR has the most bitter beer American Double / Imperial IPA
 
 colnames(TopIBU)[10]="state"
-#adding lon and lat for IBU in city
+#adding Lon and lat for IBU in city
 TopIBU["lon"]=c(2077170.3,1438908.7,2316750.9,2106577.2,-1737954.4)
 TopIBU["lat"]=c(291157.38,-409124.27,124310.31,-599942.09,304837.67)
 TopIBU$City[1]="Heady Topper,Waterbury,IBU:120"
@@ -168,12 +178,7 @@ Abingdon,IBU:135"
 TopIBU$City[5]="Bitter Bitch Imperial IPA,Astoria,IBU:138"
 
 #-----------------------------------------------
-
 ```
-
-## Top 5 ABV Beer/ Top 5 IBU Beer
-- plot the chart with the top 5 ABV Beer and it's location
-- plot the chart with the top 5 IBU Beer and it's location
 
 ```{r}
 #plot top 5 state that has the most ABV beer
@@ -185,8 +190,8 @@ plot_usmap(data = TopABV, regions = "state", values = "ABV", color = "#56B4E9",l
              label.r = unit(0.5, "lines"), label.size = 0.5,
              segment.color = "black", segment.size = 1)
 
+#Lee Hill Series Vol. 5 - Belgian Style Quadruple Ale from Colorado has the most ABV content of 12.8%
 
-#-----------------------------------------------
 #plot top 5 state with most IBU beer
 plot_usmap(data = TopIBU, regions = "state", values = "IBU", color = "#56B4E9",labels = TRUE,label_color = "#E69F00") + 
   scale_fill_continuous(
@@ -197,6 +202,7 @@ plot_usmap(data = TopIBU, regions = "state", values = "IBU", color = "#56B4E9",l
              segment.color = "black", segment.size = 1)
 
 
+#Bitter Bitch Imperial IPA, from Astoria,has the most IBU of 138
 ```
 
 ## Comment on the summary statistics and distribution of the ABV variable
@@ -229,7 +235,7 @@ p5=all%>%
 
 ggplotly(p5)
 
-#ABV has a left screwed distribution.
+#ABV has a slightly right screwed distribution.
  
 ```
 
@@ -245,7 +251,7 @@ all %>%
   ggtitle("Relationship between IBU and ABV")+
   ggthemes::theme_economist()
 
-
+#There is a positive linear relationship between IBU and ABV
 ```
 
 ## Difference with respect to IBU and ABV IPA and ALE
@@ -291,6 +297,8 @@ confusionMatrix(table(classification,IPAandAle$Category))
 p6=ggplot(IPAandAle,aes(x=IBU,y=ABV,color=Category))+geom_point()+ggthemes::theme_economist()
 
 ggplotly(p6)
+
+#Using KKN, we can see that k=3 our model has the most accuracy, and a clear positive correlation between ABV and IBU
 
 ```
 
@@ -341,6 +349,8 @@ plot_usmap(data = top5companies, regions = "state", values = "n", fill="indianre
   ggrepel::geom_label_repel(data = top5companies,aes(x = lon, y = lat, label =company),size = 3, alpha = 0.8, label.r = unit(0.5, "lines"), label.size = 0.5,segment.color = "black", segment.size = 1)+
   geom_point(data = top5companies,aes(x = lon, y = lat, size = n),color = "navyblue", alpha = 0.5)+
   scale_size_continuous(range = c(5, 10),name = "Number of Craft Beer Made", label = scales::comma)+theme(legend.position = "right")
+
+#Company Brewery Vivant produce 62 beer with different 27 styles
 ```
 
 ## WHICH STYLE IS THE MOST POPULAR STYLE?
@@ -386,6 +396,8 @@ top5americanipa=data.frame(company,state,lon,lat,n)
 
 plot_usmap(data = top5americanipa, fill="indianred",regions = "state", values = "n", color = "lemonchiffon",labels = TRUE,label_color = "#E69F00") +  ggrepel::geom_label_repel(data = top5americanipa,aes(x = lon, y = lat, label =company),size = 3, alpha = 0.8,label.r = unit(0.5, "lines"), label.size = 0.5,segment.color = "black", segment.size = 1)+geom_point(data = top5americanipa,aes(x = lon, y = lat, size = n),color = "navyblue", alpha = 0.5)+scale_size_continuous(range = c(5, 10),name = "American IPA", label = scales::comma)+theme(legend.position = "right")
 
+
+#Company Cigar City Brewing Company produces 10 American IPA
 ```
 
-## If Budweiser is considering expanding its craft beer business, or making an acquisition, we think that these breweries could can benifit budweiser positivily.
+## If Budweiser is considering expanding its craft beer business, or making an acquisition, we think that these breweries can benifit budweiser positivily.
