@@ -1,0 +1,14 @@
+Code,Description ,Type
+file1beer,Beer.csv ,Data frame
+file2brewery,Brewery.csv,Data frame 
+All,Beer plus Brewery datasets,Data frame
+P,Plot,List
+P2,Plot 2,List
+TopABV,Top ABV Level Dataset ,DataFrame
+TopIBU,Top IBU Level Dataset ,DataFrame
+company,Name of the company and related information ,Character 
+state,US States,Character 
+lon,Longitude of a city,Double
+lat,Latitude of a city ,Double
+n,Frequency of a particular value occurrence. ,Int
+q,A plot ,List
