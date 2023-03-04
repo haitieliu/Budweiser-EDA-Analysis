@@ -55,7 +55,7 @@ use plot_usmap() function to help you plot us maps
 @Haitie Liu
 
     
-@Carlos
+@Carlos Estevez
 
 
 ## Contributing
