@@ -1,0 +1,512 @@
+---
+title: "Budweiser EDA"
+output:
+  html_document: default
+  pdf_document: default
+date: "2023-02-18"
+---
+
+## Introduction
+
+- Welcome to the EDA with Budweiser, in this analysis we will dive deep into beer and breweries data across the United States, analyzing different metrics given such as ABV (Alcohol by volume) and IBU (International bitterness level), using these metrics to classify different craft beer types, expand our reserach into top performing breweries, the most craft-beer-friendly states and most popular craft beer style in the country.
+
+- Then we will take another deep dive into overall craft beer market, given what we know about Budweiser, where do we see potential opportunities and improvements so our insights could turn into business solutions 
+
+![(Budweiser Logo)](https://www.highreshdwallpapers.com/wp-content/uploads/2014/06/Ice-Cold-Budweiser.jpg)
+
+
+## Loading packages and reading data files.
+```{r setup, message=FALSE}
+#load all library needed
+library(usmap)
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(stringr)
+library(caret)
+library(e1071)
+library(tidyverse)
+library(plotly)
+library(class)
+library(GGally)
+library(RANN)
+```
+
+## Merge two data sets together
+
+```{r}
+file1beer=read.csv(file.choose(),header=TRUE)  #loading first data
+file2brewery=read.csv(file.choose(),header=TRUE) #loading second data
+all=full_join(file1beer,file2brewery,by =c("Brewery_id"="Brew_ID")) #full join them together
+```
+
+## Addressing the missing values in each column
+
+-   In this section we will perform data cleansing.
+-   Addressing missing values
+-   We will implement different methods for IBU and ABV
+    -   ABV: Replace missing values with the arithmetic mean
+    -   IBU: Replace missing values using KnnImpute
+    
+```{r}
+#address missing values
+ #replacing all NA values with average ABV
+ 
+ all$ABV=replace_na(all$ABV,mean(all[!is.na(all$ABV),]$ABV))
+   
+ #Clearing NA values using KNN
+ knn_imp_model <- preProcess(all %>%
+                          select(ABV,IBU),
+                            method = c("knnImpute"),
+                            k = 20,
+                            knnSummary = mean)
+
+all <- predict(knn_imp_model, all,na.action = na.pass)
+ 
+procNames <- data.frame(col = names(knn_imp_model$mean), mean = knn_imp_model$mean, sd = knn_imp_model$std)
+for(i in procNames$col){
+ all[i] <- all[i]*knn_imp_model$std[i]+knn_imp_model$mean[i] 
+}
+
+
+##cleaning Data
+
+brewerybystate=table(file2brewery$State)
+brewerybystate= data.frame(brewerybystate)
+colnames(brewerybystate)[1]="state"
+brewerybystate$Freq=as.double(brewerybystate$Freq)
+brewerybystate$state=as.character(brewerybystate$state)
+all$State=str_replace_all(all$State," ","")
+brewerybystate$state=str_replace_all(brewerybystate$state," ","")
+
+```
+#### Anwser:
+- After Knn Impute, we have a much more cohesive data set
+
+## Compute the median alcohol content and international bitterness unit for each state. Plot a bar chart to compare
+
+- plot a bar chart with median ABV on the Y-axis and States on the X-axis, then plot the same chart with top 5 States that have most breweries.
+
+```{R}
+#calculating median alcohol content
+#calculate median
+alls=all %>%
+  group_by(State) %>% #group by state
+  summarise(median_ABV = median(ABV), median_IBU = median(IBU)) 
+
+#use ggplot to plot the chart
+p2=ggplot(alls, aes(x = State, y = median_ABV, fill = median_IBU)) + 
+  geom_col() +
+  ggtitle("Median ABV and IBU by State") +
+  xlab("State") +
+  ylab("Median ABV") +
+  scale_fill_gradient(low = "blue", high = "red", name="Median IBU") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+ggplotly(p2)
+
+#bar chart for the top 5 states
+
+statesmedian=all %>%
+  group_by(State) %>%
+  filter(State=="CO" | State=="CA" |State=="MI" |State=="OR" | State=="TX")%>%#group by state
+  summarise(median_ABV = median(ABV), median_IBU = median(IBU)) #calculate median
+
+p3=ggplot(statesmedian, aes(x = State, y = median_ABV, fill = median_IBU)) + #use ggplot to plot the chart
+  geom_col() +
+  ggtitle("Median ABV and IBU by State") +
+  xlab("State") +
+  ylab("Median ABV") +
+  scale_fill_gradient(low = "blue", high = "red", name="Median IBU") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+ggplotly(p3)
+
+#calculating using mean
+allsmean=all %>%
+  group_by(State) %>% #group by state
+  filter(State=="CO" | State=="CA" |State=="MI" |State=="OR" | State=="TX")%>%
+  summarise(mean_ABV = mean(ABV), mean_IBU = mean(IBU)) #calculate mean
+
+```
+#### Answer:
+- DC has the highest median IBU
+- KS has the lowest median IBU
+- WV has the highest median ABV
+- UT has the lowest median ABV
+- TX has the lowest median IBU among biggest 5 states
+- All big 5 states have median ABV between 5% - 6%
+
+
+
+
+## Which state has the maximum alcoholic (ABV) beer? Which state has the most bitter (IBU) beer
+
+- plot the chart with longitude and latitude of each city, and notate on the plot with interactive information.
+- plot the chart with the top 5 ABV Beer and its location
+- plot the chart with the top 5 IBU Beer and its location
+```{R}
+#calculating Max ABV and IBU in each state
+
+TopABV=tail(all[order(all$ABV),],n=5) #CO has the most alcohol content 	Lee Hill Series Vol. 5 - Belgian Style Quadruple Ale
+TopABV=TopABV[-2,]
+colnames(TopABV)[10]="state"
+#adding Lon and lat to the city
+TopABV["lon"]=c(2154322.9,1177270.3,1240243.5,-417274.7)
+TopABV["lat"]=c(-136665.48,-482626.02,-645902.20,-570172.90)
+#adding description to the chart
+TopABV$City[1]="4Beans,Brooklyn,ABV:0.100"
+TopABV$City[2]="London Balling,Evansville,ABV:0.125"
+TopABV$City[3]="Csar,Louisville,AVB:0.120"
+TopABV$City[4]="Lee Hill Series Vol.5,Boulder,ABV:0.128 
+Lee Hill Series Vol.4,Boulder,ABV:0.104"
+  
+
+TopIBU=tail(all[order(all$IBU),],n=5) #OR has the most bitter beer American Double / Imperial IPA
+
+colnames(TopIBU)[10]="state"
+#adding Lon and lat for IBU in city
+TopIBU["lon"]=c(2077170.3,1438908.7,2316750.9,2106577.2,-1737954.4)
+TopIBU["lat"]=c(291157.38,-409124.27,124310.31,-599942.09,304837.67)
+TopIBU$City[1]="Heady Topper,Waterbury,IBU:120"
+TopIBU$City[2]="Bay of Bengal Double IPA,Cincinnati,IBU:126"
+TopIBU$City[3]="Dead-Eye DIPA,
+Gloucester,IBU:130"
+TopIBU$City[4]="Troopers Alley IPA,
+Abingdon,IBU:135"
+TopIBU$City[5]="Bitter Bitch Imperial IPA,Astoria,IBU:138"
+
+
+#plot top 5 state that has the most ABV beer
+plot_usmap(data = TopABV, regions = "state", values = "ABV", color = "#56B4E9",labels = TRUE,label_color = "#E69F00") + 
+  scale_fill_continuous(
+    low = "white", high = "red", name = "Maximum Alcoholic (ABV)", label = scales::comma
+  ) + theme(legend.position = "left")+ggrepel::geom_label_repel(data = TopABV,
+             aes(x = lon, y = lat, label = City),size = 3, alpha = 0.8,
+             label.r = unit(0.5, "lines"), label.size = 0.5,
+             segment.color = "black", segment.size = 1) + ggtitle("Top 5 Beer in ABV Level")
+
+#plot top 5 state with most IBU beer
+plot_usmap(data = TopIBU, regions = "state", values = "IBU", color = "#56B4E9",labels = TRUE,label_color = "#E69F00") + 
+  scale_fill_continuous(
+    low = "white", high = "purple", name = "Most Bitter (IBU)", label = scales::comma
+  ) + theme(legend.position = "left") +ggrepel::geom_label_repel(data = TopIBU,
+             aes(x = lon, y = lat, label = City),size = 3, alpha = 0.8,
+             label.r = unit(0.5, "lines"), label.size = 0.5,
+             segment.color = "black", segment.size = 1) + ggtitle("Top 5 Beer in IBU Level")
+
+```
+
+#### Anwser:
+- Top ABV:
+    - 1. Lee Hill Series Vol. 5 - Belgian Style Quadrupel Ale: Boulder, Colorado,ABV: 0.128
+    - 2. London Balling: Evansville,Kentucky, ABV: 0.125
+    - 3. Csar, Louisville: Indiana, ABV: 0.120
+    - 4. Lee Hill Series Vol. 4 - Manhattan Style Rye Ale: Boulder,Colorado, ABV: 0.104
+    - 5. 4Beans, From: Brooklyn: New York, ABV: 0.100
+- Top IBU:
+    - 1. Bitter Bitch Imperial IPA: Astoria, Oregon, IBU: 138
+    - 2. Troopers Alley IPA: Abingdon, VA, IBU: 135
+    - 3. Dead-Eye DIPA: Gloucester, MA, IBU: 130
+    - 4. Bay of Bengal Double IPA (2014): Cincinnati, OH, IBU: 126
+    - 5. Heady Topper: Waterbury, VT, IBU: 120
+
+
+
+
+
+## Comment on the summary statistics and distribution of the ABV variable
+- Plot the distribution of ABV variable
+- Classify beer into "ALE","IPA", "Other"
+- Observe the distribution to look for insights
+```{r, include=TRUE, cache = FALSE, message=FALSE,warning=FALSE}
+#Comment on the summary statistics and distribution of the ABV variable.
+
+#creating a category
+all$Category="Other"
+
+
+#classify all IPA as IPA
+indexIPA=grep("IPA",all$Name.x) 
+IPA=all[indexIPA,]
+all[indexIPA,"Category"]="IPA"
+
+#classify all Ale as Ale
+indexAle=grep("Ale",all$Name.x) 
+Ale=all[indexAle,]
+all[indexAle,"Category"]="Ale"
+
+
+#Statistics 
+
+p5=all%>%
+  select(IBU,ABV,Category)%>%
+  ggpairs(aes(color=Category))+ggtitle("Summary Stats For ABV/IBU")
+
+ggplotly(p5)
+
+```
+#### Anwser:
+- According to the histogram we can conclude that the data seems slight right-skewed.
+ 
+ 
+ 
+
+## Is there an apparent relationship between the bitterness of the beer and its alcoholic content? Draw a scatter plot.
+- Plot IBU on the x-axis and ABV on the Y-axis
+- classify beer into "ALE","IPA", "Other"
+- Draw a regression line using geom_smooth to observe the relationship
+
+```{r, include=TRUE, cache = FALSE, message=FALSE}
+#Finding out linear relationship between IBU and ABV
+
+all %>%
+  ggplot(aes(x=IBU,y=ABV,color=Category))+
+  geom_point()+geom_smooth()+
+  ggtitle("Relationship between IBU and ABV")+
+  ggthemes::theme_economist()
+```
+
+#### Answer: 
+- Given the chart above, there is a positive correlation between ABV and IBU
+
+
+
+
+## Difference with respect to IBU and ABV, IPA and ALE
+- classify beer into IPA and ALE
+- Using KNN (K nearest neighbor) to verify the relationship
+- Tuning K to find out the max accuracy
+- Conclude accuracy
+
+```{r}
+
+#creating a category
+all$Category="other"
+
+#classify all IPA as IPA
+indexIPA=grep("IPA",all$Name.x) 
+IPA=all[indexIPA,]
+all[indexIPA,"Category"]="IPA"
+
+#classify all Ale as Ale
+indexAle=grep("Ale",all$Name.x) 
+Ale=all[indexAle,]
+all[indexAle,"Category"]="Ale"
+
+#Filter only IPA and ALE
+IPAandAle=all %>%      
+  filter(Category=="IPA" |Category== "Ale")
+
+#classification=knn.cv(IPAandAle[c(3,4)],IPAandAle$Category,k=3) #find out max accuracy
+#confusionMatrix(table(classification,IPAandAle$Category))
+
+
+MaxAccuracy=numeric(100) #find out max accuracy
+
+for (i in 1:100){
+  classification=knn.cv(IPAandAle[c(3,4)],IPAandAle$Category,k=i)
+  CM=confusionMatrix(table(classification,IPAandAle$Category))
+  MaxAccuracy[i]=CM$overall[1]
+}
+
+plot(MaxAccuracy) #find out max accuracy
+
+#accuracy is the highest when k =3, use k=3 as classification 
+
+classification=knn.cv(IPAandAle[c(3,4)],IPAandAle$Category,k=3) #find out max accuracy
+confusionMatrix(table(classification,IPAandAle$Category))
+
+p6=ggplot(IPAandAle,aes(x=IBU,y=ABV,color=Category))+geom_point()+ggthemes::theme_economist()+ggtitle(" IPA VS. Ale")
+
+ggplotly(p6)
+
+
+```
+#### Anwser: 
+- Using KKN, we can see that k=3 our model has the most accuracy,c learly IPA tends to have higher IBU and ABV level, while ALE has lower IBU and ABV level.
+
+
+
+
+## How many breweries are present in each state?
+- Looking for state/states that have the most number breweries
+
+```{R}
+# count how many brewery are present in each state
+#using raw data to create a data set contains, state and freq and lot it with US map
+
+
+p1=plot_usmap(data = brewerybystate, regions = "state", values = "Freq", color = "#56B4E9",labels = TRUE,label_color = "#E69F00") + 
+  scale_fill_continuous(
+    low = "white", high = "red", name = "Number of Brewery", label = scales::comma
+  ) + theme(legend.position = "right") + ggtitle("Number of Breweries In Each State")
+
+ggplotly(p1)
+
+```
+
+#### Anwser: these states account for 32% of craft breweries in the United States, producing whopping close to 50% of all known craft beers in the country! These States are craft beer powerhouse!
+- Colorado: 47 breweries
+- California: 39 breweries
+- Michigan: 32 breweries
+- Oregon: 29 breweries
+- Texas: 28 breweries
+
+
+
+
+
+
+## Looking the top producing companies in the top 5 states
+- looking deeper into top 5 states that have the most number of breweries
+- Dissecting with companies information
+- Which company produces the most craft beer or the most style of craft beer?
+```{r, include=TRUE, cache = FALSE, warning=FALSE}
+#Inputting data information
+
+company=c("Brewery Vivant:62 beer:27 styles","Oskar Blues Brewery:46 beer:12 styles","Hopworks Urban Brewery:23 beer:9 styles","21st Amendment Brewery:20 beer:12 style","Southern Star Brewing Company:14 beer:7 style")
+state=c("MI","CO","OR","CA","TX")
+lon=c(1381364.2,-417274.7,-1737954.4,-1673156,449681)
+lat=c(-153020.33,-570172.90,304837.67,-1034841.6,-1677650)
+n=c(62,46,23,20,14)
+top5companies=data.frame(company,state,n,lon,lat)
+
+#plot using information gathered
+
+plot_usmap(data = top5companies, regions = "state", values = "n", fill="indianred",color = "lemonchiffon",labels = TRUE,label_color = "#E69F00") +  
+  
+  ggrepel::geom_label_repel(data = top5companies,aes(x = lon, y = lat, label =company),size = 3, alpha = 0.8, label.r = unit(0.5, "lines"), label.size = 0.5,segment.color = "black", segment.size = 1)+
+  geom_point(data = top5companies,aes(x = lon, y = lat, size = n),color = "navyblue", alpha = 0.5)+
+  scale_size_continuous(range = c(5, 10),name = "Number of Craft Beer Made", label = scales::comma)+theme(legend.position = "right") + ggtitle("Top Performing Companies in the Country")
+```
+
+#### Anwser: If we are planning an acquisition, 'Brewery Vivant' is definitely worth looking at, fun fact: Oskar Blue Brewery was bought by monster drink in 2022.
+- 1. Company Brewery Vivant produce 62 beer with different 27 styles
+- 2. Oscar Blues Brewery, CO: 46 beer, 12 styles 
+- 3. Hopworks Urban Brewery, OR: 23 beer, 9 styles
+- 4. 21st Amendment Brewery, CA: 20 beer, 12 styles
+- 5. Southern Star Brewing Company, TX: 14 beer, 7 styles
+
+
+
+
+
+## Which craftbeer style is the most popular
+- Dissecting even deeper
+- Draw a bar chart counting the most number of beer style produced
+- Observe the plot to look for insights
+```{r}
+#group by style
+q=all%>%
+  group_by(Style)%>%
+  count()
+
+#Print top 10 style
+q=q[order(q$n,decreasing = TRUE),]
+q=q[1:10,]
+
+#plot the chart
+q1=q%>%
+ggplot(aes(x = Style, y = n)) +
+  geom_bar(stat = "identity", fill = "steelblue")+theme(axis.text.x = element_text(angle = 90, hjust = 0.4, vjust = 0.5,size = 6)) + theme(plot.margin = unit(c(1,1,2,1), "lines"))+ggtitle("How Many Beer Are Produced in Each Style?") +ylab("Number of Beer")
+
+ggplotly(q1)
+```
+#### Answer:
+- American IPA seems to be the most popular style
+
+
+
+## What are budweiser's currently profolio in craft beer business
+- These businesses are currently owned and operated by Budweiser.
+```{r,include=TRUE, cache = FALSE, warning=FALSE}
+
+company=c("Appalachian Mountain Brewery","Breckenridge Brewery
+          Wynkoop Brewing Company","Cisco Brewers","Four Peaks Brewing Company","Golden Road Brewing", "Goose Island Brewery Company", "Karbach Brewing Company","Platform Beer Company", "Redhook Brewery", "Widmer Brothers Brewing Company")
+state=c("NC","CO","MA","AZ","CA","IL","TX","OH","WA","OR")
+lon=c(1728233,-417274.7,2316750.9,-1120927,-1673156,1019668.8,449681,1438909,-1647122.3,	
+-1737954.4)
+lat=c(-887653.23,-570172.90,124310.3,-1202575,-1034841.6,-269814.5,-1677650,-409124.3,522699.5,304837.67)
+n=c(3,12,7,7,15,7,10,1,3,3)
+Profoilo=data.frame(company,state,n,lon,lat)
+
+
+company=c("Appalachian Mountain Brewery:3 beer:3 styles","Breckenridge Brewery:3 beer:3 styles,
+          Wynkoop Brewing Company ; 9 beer: 8 style ","Cisco Brewers: 7 beer: 7 styles","Four Peaks Brewing Company:7 beer:6 style","Golden Road Brewing:15 beer:6 style", "Goose Island Brewery Company: 7 beer: 3 style", "Karbach Brewing Company: 10 beer: 9 styles","Platform Beer Company: 1 beer, 1 style", "Redhook Brewery: 3 beer: 2 styles", "Widmer Brothers Brewing Company: 3 beer: 2 styles")
+state=c("NC","CO","MA","AZ","CA","IL","TX","OH","WA","OR")
+
+lon=c(1728233,-417274.7,2316750.9,-1120927,-1673156,1019668.8,449681,1438909,-1647122.3,	
+-1737954.4)
+lat=c(-887653.23,-570172.90,124310.3,-1202575,-1034841.6,-269814.5,-1677650,-409124.3,522699.5,304837.67)
+n=c(3,12,7,7,15,7,10,1,3,3)
+Profoilo=data.frame(company,state,n,lon,lat)
+
+plot_usmap(data = Profoilo, regions = "state", values = "n", fill="navyblue",color = "lemonchiffon",labels = TRUE,label_color = "white") +  
+  
+  ggrepel::geom_label_repel(data = Profoilo,aes(x = lon, y = lat, label =company),size = 3, alpha = 0.8, label.r = unit(0.5, "lines"), label.size = 0.5,segment.color = "white", segment.size = 1)+
+  geom_point(data = top5companies,aes(x = lon, y = lat, size = n),color = "indianred", alpha = 0.5)+
+  scale_size_continuous(range = c(5, 10),name = "Number of Beer Made", label = scales::comma)+theme(legend.position = "right") + ggtitle("Budweiser's Craft Beer Profilio")
+```
+
+#### Anweser:
+
+- According to our research, Budweiser owns 11 craft beer businesses across 10 different states, they are: 
+
+    - Appalachian Mountain Brewery, NC
+    - Breckenridge Brewery, CO
+    - Wynkoop Brewing Company, CO
+    - Cisco Brewers, MA
+    - Four Peaks Brewing Company, AZ
+    - Golden Road Brewing, CA
+    - Goose Island Brewery Company, IL
+    - Karbach Brewing Company, TX
+    - Platform Beer Company, OH
+    - Redhook Brewery, WA
+    - Widmer Brothers Brewing Company, OR
+
+- After a deeper look, only a selected few produce "some" American IPAs, like "Golden Road Brewing" company.
+
+- If our assumption is true, then Budweiser could introduce more American IPAs or purchase additional breweries that produce more American IPAs, WHICH LEADS TO THE FOLLOWING QUESTION.
+
+## Within those top 5 states, which company produces the most American IPA?
+- Deep dive into the findings from above
+- look into the best performing companies producing the most number of American IPAs
+
+```{r, include=TRUE, cache = FALSE, warning=FALSE}
+##same plot with top5American Company
+
+company=c("Cigar City Brewing Company,10","Golden Road Brewing,9","Sun King Brewing Company,6","Two Beers Brewing Company,6","Oskar Blues Brewery,5")
+state=c("FL","CA","IN","WA","CO")
+n=c(10,9,6,6,5)
+lon=c(1758276,-1673156,1177270.3,	
+-1647122.3,-417274.7)
+lat=c(-1437933,-1034841.6,-482626.02,522699.5,	
+-570172.90)
+top5americanipa=data.frame(company,state,lon,lat,n)
+
+
+#plot
+
+plot_usmap(data = top5americanipa, fill="indianred",regions = "state", values = "n", color = "lemonchiffon",labels = TRUE,label_color = "#E69F00") +  ggrepel::geom_label_repel(data = top5americanipa,aes(x = lon, y = lat, label =company),size = 3, alpha = 0.8,label.r = unit(0.5, "lines"), label.size = 0.5,segment.color = "black", segment.size = 1)+geom_point(data = top5americanipa,aes(x = lon, y = lat, size = n),color = "navyblue", alpha = 0.5)+scale_size_continuous(range = c(5, 10),name = "American IPA", label = scales::comma)+theme(legend.position = "right")+ggtitle("Top performing companies producing the most American IPA")
+```
+
+#### Answser:
+- Cigar City Brewing Company produces the most American IPAs, with 10 different American IPAs.
+- Golden Road Brewing produces 9 different American IPAs
+- Sun King Brewing produces 6 different American IPAs
+- Two Beers Brewing Company produces 6 different American IPAs
+- Oskar Blues Brewery produces 5 different American IPAs
+
+## Conclusion
+- After careful thought, we think that in the state of Colorado, state of California, state of Michigan, state of Oregon, and state of Texas are worthy of investment in terms of producing craft beer
+
+- If Budweiser is indeed considering expanding its craft beer business, or making an acquisition, we we do think that companies like Brewery Vivant is a typical thriving business that produces a large variety of craft beer across different styles.
+
+- Based on our assumption that if American IPA is the most popular craft beer style in the country, given the current Budweiser craft beer business portfolio, which is lacking craft beer business that produce different varieties of American IPAs, we give recommendations on introducing companies which are producing a large number of American IPAs to strengthen its competitiveness.
+
+- Thank you so much for taking your time to look at this report, if you have any questions, please send an email to haitiel@mail.smu.edu.
+
+Contributor: Haitie Liu & Carlos Estevez
+
+
