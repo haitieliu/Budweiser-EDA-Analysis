@@ -51,7 +51,7 @@ use plot_usmap() function to help you plot us maps
 ## Contact
 
 @Haitie Liu
-    -haitiel@smu.edu
+
     
 @Carlos
 
