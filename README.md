@@ -1,7 +1,7 @@
 
 # About This Project
 
-- ![open this link to directly go to the HTLM link of this report]https://rpubs.com/haitieliu1993/Budweiser-EDA
+- [open this link to directly go to the HTLM link of this report](https://rpubs.com/haitieliu1993/Budweiser-EDA)
 
 -   Welcome to the EDA with Budweiser, in this analysis we will dive deep into beer and breweries data across the United States, analyzing different metrics such as ABV (Alcohol by volume) and IBU (International bitterness level), using machine learning technique to classify different craft beer types, investigating top performing breweries&companies, the most craft-beer-friendly states and most popular craft beer style in the country.
 
