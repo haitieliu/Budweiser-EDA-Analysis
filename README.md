@@ -3,7 +3,7 @@
 
 -   The whole idea of this analysis is to focus on the different business areas that the Budweiser corporation could improve so that these insights could turn into business solutions.
 
-## http://rpubs.com/haitieliu1993/budweiserEDA
+## https://rpubs.com/haitieliu1993/1010994
 
 
 ## notes: Using Beers.CSV and Breweries.CSV to conduct EDA
