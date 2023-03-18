@@ -3,9 +3,10 @@
 
 - [Open this link to directly go to the HTLM link of this report](https://haitieliu.github.io/BudweiserEDA1.html) [updated this link only on 3/17/2023]
 
-- Welcome to the EDA with Budweiser, in this analysis we will dive deep into beer and breweries data across the United States, analyzing different metrics such as ABV (Alcohol by volume) and IBU (International bitterness level), using machine learning technique to classify different craft beer types, investigating top performing breweries&companies, the most craft-beer-friendly states and most popular craft beer style in the country.
+- Welcome to the EDA with Budweiser, in this analysis we will dive deep into beer and breweries data across the United States, analysing different key metrics such as ABV (Alcohol by volume) and IBU (International bitterness level), using machine learning techniques to classify different craft beer types and investigating top performing breweries companies, as well as the most craft-beer-friendly states and most popular craft beer style in the country.
 
-- Then we will take another deep dive into overall craft beer market, analyzing potential opportunities and improvements, then give appropriate recommendations to Budweiser CEO&CFO, so our insights could turn into business solutions.
+- Then we will take another deep dive into overall craft beer market, analysing potential opportunities and improvements, then give proper recommendations to Budweiser CEO and CFO , so our insights could turn into business solutions.
+Dive deep into beer and breweries data across the United States. 
 
 
 ## Built With
